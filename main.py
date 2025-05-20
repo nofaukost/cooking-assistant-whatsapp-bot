@@ -89,7 +89,7 @@ async def whatsapp_webhook(
     # Get form data
     form_data = await request.form()
     message_data = dict(form_data)
-    print(message_data)
+    print("WhatsApp webhook data:", message_data)
     
     # Validate Twilio signature
     if not whatsapp_service.validate_request(
@@ -99,149 +99,91 @@ async def whatsapp_webhook(
     ):
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
     
-    # Parse message
+    # Check for clear history event
+    print("message_data", message_data)
+    if message_data.get("ButtonText") == "Clear History" or message_data.get("ButtonId") == "clear_history":
+        # Get user from phone number
+        phone_number = message_data.get("From", "").replace("whatsapp:", "")
+        users_collection = mongodb.get_collection("users")
+        
+        # Clear conversation history
+        await users_collection.update_one(
+            {"phone_number": phone_number},
+            {
+                "$set": {
+                    "conversation_history": [],
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        # Send confirmation message
+        await whatsapp_service.send_text_message(
+            to_number=phone_number,
+            message="✅ Chat history has been cleared!"
+        )
+        return {"status": "success", "action": "history_cleared"}
+    
+    # Parse message for normal message handling
     parsed_message = whatsapp_service.parse_incoming_message(message_data)
     phone_number = parsed_message["from_number"]
     
     # Get or create user
     user = await get_user(phone_number)
+    users_collection = mongodb.get_collection("users")
     
-    # Handle different message types
-    if parsed_message["type"] == "text":
-        # Generate AI response
-        ai_response = await ai_service.generate_response(
-            message=parsed_message["message_body"],
-            conversation_history=user.get("conversation_history", []),  # Ensure we have a list
-            personality=user["preferences"]["chef_personality"],
-            user_preferences=user["preferences"],
-            available_ingredients=user["kitchen_inventory"]["ingredients"]
-        )
-        
-        # Update user's conversation history
-        users_collection = mongodb.get_collection("users")
-        try:
-            # Ensure we're using the correct ObjectId
-            user_id = user["user_id"]
+    try:
+        # Handle different message types
+        if parsed_message["type"] == "text":
+            # Classify the message
+            classification = await ai_service.classify_message(
+                message=parsed_message["message_body"],
+                user_preferences=user["preferences"]
+            )
+            print("classification", classification)
             
-            # Update the conversation history
-            update_result = await users_collection.update_one(
-                {"user_id": user_id},
+            # Process the message based on classification
+            result = await ai_service.process_classified_message(
+                classification=classification,
+                user=user,
+                message=parsed_message["message_body"]
+            )
+            
+            # Update conversation history
+            await users_collection.update_one(
+                {"user_id": user["user_id"]},
                 {
                     "$set": {
-                        "conversation_history": ai_response["conversation_history"],
+                        "conversation_history": result["conversation_history"],
                         "updated_at": datetime.utcnow()
                     }
                 }
             )
             
-            # Log the update result for debugging
-            print(f"Update result: {update_result.modified_count} documents modified")
+            # Send response back to user
+            await whatsapp_service.send_text_message(
+                to_number=phone_number,
+                message=result["response"]
+            )
             
-            if update_result.modified_count == 0:
-                logger.warning(f"Failed to update conversation history for user {user_id}")
-            user = await get_user(phone_number)
-            print("user", user)
-                
-        except Exception as e:
-            logger.error(f"Error updating conversation history: {e}")
-            raise HTTPException(status_code=500, detail="Failed to update conversation history")
+        elif parsed_message["type"] == "image":
+            # Analyze image
+            image_analysis = await ai_service.analyze_image(parsed_message["media_url"])
+            await whatsapp_service.send_text_message(
+                to_number=phone_number,
+                message=f"I've analyzed your image. Here's what I found:\n\n{image_analysis['analysis']}"
+            )
         
-        # Send response back to user
+        return {"status": "success"}
+        
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
         await whatsapp_service.send_text_message(
             to_number=phone_number,
-            message=ai_response["response"]
+            message="❌ Sorry, something went wrong. Please try again."
         )
-        
-    elif parsed_message["type"] == "image":
-        # Analyze image
-        image_analysis = await ai_service.analyze_image(parsed_message["media_url"])
-        
-        # Send analysis to user
-        await whatsapp_service.send_text_message(
-            to_number=phone_number,
-            message=f"I've analyzed your image. Here's what I found:\n\n{image_analysis['analysis']}"
-        )
-    
-    return {"status": "success"}
+        raise HTTPException(status_code=500, detail="Failed to process message")
 
-@app.get("/users/{phone_number}")
-async def get_user_profile(phone_number: str):
-    """Get user profile"""
-    user = await get_user(phone_number)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-@app.put("/users/{phone_number}/preferences")
-async def update_user_preferences(
-    phone_number: str,
-    preferences: UpdatePreferences
-):
-    """Update user preferences"""
-    users_collection = mongodb.get_collection("users")
-    user = await get_user(phone_number)
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Update preferences
-    update_data = {}
-    for field, value in preferences.dict(exclude_unset=True).items():
-        if value is not None:
-            update_data[f"preferences.{field}"] = value
-    
-    if update_data:
-        update_data["updated_at"] = datetime.utcnow()
-        await users_collection.update_one(
-            {"_id": ObjectId(user["_id"])},
-            {"$set": update_data}
-        )
-    
-    updated_user = await users_collection.find_one({"_id": ObjectId(user["_id"])})
-    return updated_user
-
-@app.put("/users/{phone_number}/inventory")
-async def update_kitchen_inventory(
-    phone_number: str,
-    ingredients: List[str]
-):
-    """Update user's kitchen inventory"""
-    users_collection = mongodb.get_collection("users")
-    user = await get_user(phone_number)
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Update inventory
-    await users_collection.update_one(
-        {"_id": ObjectId(user["_id"])},
-        {
-            "$set": {
-                "kitchen_inventory.ingredients": ingredients,
-                "kitchen_inventory.last_updated": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
-    
-    updated_user = await users_collection.find_one({"_id": ObjectId(user["_id"])})
-    return updated_user
-
-@app.get("/users/{phone_number}/recipes")
-async def get_recipe_recommendations(phone_number: str):
-    """Get recipe recommendations based on user's inventory and preferences"""
-    user = await get_user(phone_number)
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    recommendations = await ai_service.generate_recipe_recommendations(
-        ingredients=user["kitchen_inventory"]["ingredients"],
-        preferences=user["preferences"],
-        conversation_history=user["conversation_history"]
-    )
-    
-    return recommendations
 
 if __name__ == "__main__":
     import uvicorn
