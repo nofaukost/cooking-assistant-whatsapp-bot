@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.services.whatsapp_service import whatsapp_service
 from app.services.ai_service import ai_service
 from app.db.mongodb import mongodb
-from app.models.user import User, UserPreferences
+from app.models.user import User, UserPreferences, KitchenInventory
 from typing import Optional, Dict
 import logging
 from datetime import datetime
@@ -52,6 +52,7 @@ async def get_user(phone_number: str) -> Optional[Dict]:
             user_id=user_id,  # This is our custom user_id
             phone_number=phone_number,
             preferences=UserPreferences(),
+            kitchen_inventory=KitchenInventory(),
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
@@ -89,7 +90,7 @@ async def whatsapp_webhook(
     # Get form data
     form_data = await request.form()
     message_data = dict(form_data)
-    print("WhatsApp webhook data:", message_data)
+    # print("WhatsApp webhook data:", message_data)
     
     # Validate Twilio signature
     if not whatsapp_service.validate_request(
@@ -98,31 +99,7 @@ async def whatsapp_webhook(
         message_data
     ):
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
-    
-    # Check for clear history event
-    print("message_data", message_data)
-    if message_data.get("ButtonText") == "Clear History" or message_data.get("ButtonId") == "clear_history":
-        # Get user from phone number
-        phone_number = message_data.get("From", "").replace("whatsapp:", "")
-        users_collection = mongodb.get_collection("users")
         
-        # Clear conversation history
-        await users_collection.update_one(
-            {"phone_number": phone_number},
-            {
-                "$set": {
-                    "conversation_history": [],
-                    "updated_at": datetime.utcnow()
-                }
-            }
-        )
-        
-        # Send confirmation message
-        await whatsapp_service.send_text_message(
-            to_number=phone_number,
-            message="✅ Chat history has been cleared!"
-        )
-        return {"status": "success", "action": "history_cleared"}
     
     # Parse message for normal message handling
     parsed_message = whatsapp_service.parse_incoming_message(message_data)
@@ -168,6 +145,7 @@ async def whatsapp_webhook(
             
         elif parsed_message["type"] == "image":
             # Analyze image
+            print(parsed_message)
             image_analysis = await ai_service.analyze_image(parsed_message["media_url"])
             await whatsapp_service.send_text_message(
                 to_number=phone_number,

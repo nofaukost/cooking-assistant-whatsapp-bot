@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Dict
 from datetime import datetime
 from enum import Enum
+from bson import ObjectId
 
 class ChefPersonality(str, Enum):
     FUNNY = "funny"
@@ -17,12 +18,15 @@ class UserPreferences(BaseModel):
     spice_preference: str = "medium"
     allergies: List[str] = []
 
+class InventoryItem(BaseModel):
+    name: str
+    amount: str  # e.g., "2 kg", "500g", "3 pieces", etc.
+
 class KitchenInventory(BaseModel):
-    ingredients: List[str] = []
+    ingredients: List[InventoryItem] = []
     last_updated: datetime = Field(default_factory=datetime.utcnow)
 
 class User(BaseModel):
-    id: Optional[str] = Field(None, alias="_id")
     user_id: str
     phone_number: str
     name: Optional[str] = None
@@ -51,7 +55,7 @@ class User(BaseModel):
                     "allergies": ["peanuts"]
                 },
                 "kitchen_inventory": {
-                    "ingredients": ["tomatoes", "onions", "garlic"],
+                    "ingredients": [{"name": "tomatoes", "amount": "2 kg"}, {"name": "onions", "amount": "1 kg"}, {"name": "garlic", "amount": "500g"}],
                     "last_updated": "2024-01-01T00:00:00Z"
                 }
             }
