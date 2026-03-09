@@ -1,0 +1,1 @@
+---\nname: Feature Request\ntitle: '[FEATURE] '\nlabels: enhancement\nassignees: ''\n---\n\n## Problem\nDescribe the problem this feature would solve.\n\n## Proposed Solution\nDescribe your proposed solution.\n\n## Alternatives\nAny alternative solutions you considered.\n\n## Additional Context\nAny other context or screenshots.
