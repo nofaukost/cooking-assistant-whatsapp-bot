@@ -1,0 +1,1 @@
+# Code of Conduct\n\n## Our Pledge\nWe pledge to make participation in our project a harassment-free experience for everyone.\n\n## Standards\n- Be respectful and inclusive\n- Accept constructive criticism gracefully\n- Focus on what is best for the community\n\n## Enforcement\nInstances of abusive behavior may be reported to the project maintainers.
