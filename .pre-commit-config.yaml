@@ -1,0 +1,1 @@
+repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.5.0\n    hooks:\n      - id: trailing-whitespace\n      - id: end-of-file-fixer\n      - id: check-yaml\n      - id: check-added-large-files\n  - repo: https://github.com/psf/black\n    rev: 24.1.0\n    hooks:\n      - id: black
