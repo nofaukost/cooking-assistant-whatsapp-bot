@@ -1,0 +1,1 @@
+__pycache__\n*.pyc\n*.pyo\n.git\n.gitignore\n.env\nvenv\n*.md\n.pytest_cache\n.mypy_cache
