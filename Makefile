@@ -1,0 +1,1 @@
+install:\n\tpip install -r requirements.txt\n\nlint:\n\tflake8 . --max-line-length=120 --exclude=venv,.git,__pycache__\n\nformat:\n\tblack . --line-length 120\n\ntest:\n\tpytest tests/ -v\n\nclean:\n\tfind . -type d -name __pycache__ -exec rm -rf {} +\n\tfind . -type f -name '*.pyc' -delete
