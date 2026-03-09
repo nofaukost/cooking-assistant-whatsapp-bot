@@ -1,0 +1,1 @@
+# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n## [0.1.0] - 2025-01-01\n\n### Added\n- Initial release\n- Core functionality\n- Documentation\n- CI/CD pipeline\n- Docker support
