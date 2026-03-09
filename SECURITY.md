@@ -1,0 +1,1 @@
+# Security Policy\n\n## Reporting a Vulnerability\nIf you discover a security vulnerability, please report it responsibly.\n\nEmail: security@example.com\n\n## Supported Versions\n| Version | Supported |\n|---------|----------|\n| latest  | Yes      |
