@@ -1,0 +1,1 @@
+name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-python@v5\n        with:\n          python-version: '3.11'\n      - run: pip install flake8\n      - run: flake8 . --max-line-length=120 --exclude=venv,.git,__pycache__
