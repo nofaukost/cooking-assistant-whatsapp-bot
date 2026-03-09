@@ -1,0 +1,1 @@
+---\nname: Bug Report\ntitle: '[BUG] '\nlabels: bug\nassignees: ''\n---\n\n## Describe the bug\nA clear description of the bug.\n\n## To Reproduce\n1. Step one\n2. Step two\n\n## Expected behavior\nWhat you expected to happen.\n\n## Environment\n- OS:\n- Python version:\n- Package version:
